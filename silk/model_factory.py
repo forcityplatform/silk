@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 import traceback
+import collections
 
 from django.core.urlresolvers import resolve
 
@@ -181,7 +182,11 @@ class ResponseModelFactory(object):
     def body(self):
         body = ''
         content_type, char_set = _parse_content_type(self.response.get('Content-Type', ''))
-        content = self.response.content
+        if self.response.streaming:
+            content = self.response.streaming_content            
+        else:
+            content = self.response.content
+            
         if char_set:
             try:
                 content = content.decode(char_set)
@@ -209,7 +214,12 @@ class ResponseModelFactory(object):
             max_body_size = SilkyConfig().SILKY_MAX_RESPONSE_BODY_SIZE
             if max_body_size > -1:
                 Logger.debug('Max size of response body defined so checking')
-                size = sys.getsizeof(content, None)
+                if isinstance(content,collections.Iterable):
+                    size = 0#cannot compute size on StreamingHttpResponse
+                else:
+                    size = sys.getsizeof(content, None)                
+                
+                raise Exception("SIZE=%d" % size)
                 if not size:
                     Logger.error('Could not get size of response body. Ignoring')
                     content = ''
